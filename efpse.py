@@ -1,35 +1,32 @@
-"""EFPSE Köprü: Easy FPS Editor projelerini komut satırından yönetir. Ayarlar editörün kendi koduyla okunup yazılır.
+"""EFPSE Bridge: drive Easy FPS Editor CE projects from the command line. Settings are read and written with the editor's own code.
 
-  kopru.py --motor <EasyFPSEditor_CE.exe klasörü> --proje <ad> <komut>
+  efpse.py --engine <folder with EasyFPSEditor_CE.exe> --project <name> <command>
 
-  projeler                          motordaki projeler
-  bilgi                             özet
-  liste <koleksiyon>                enemies decorations weapons maps textures models animations hps armours tiles
-  al <koleksiyon> [ad|sıra]         tüm alanlar (game, player, hud da olur)
-  ayarla <koleksiyon> <ad> alan=değer ...
-  ekle <koleksiyon> alan=değer ...
-  sil <koleksiyon> <ad>
-  sirala <koleksiyon> <ad> <ad> ... adları listenin başına dizer (silah tuş sırası)
-  kaydet                            editörün kaydettiği biçime çevirir
-  harita <ad> [--kat N]             haritayı yazıyla gösterir
-  kare <ad> <doku|boş> x y [x2 y2] [--kat N]
-  varlik <ad> <tür> x y [--sira N] [--kat N]     tür: player enemy weapon deco ammo key1 hp1 light1 ... yok
-  degistirici <ad> <tür> x y [--kat N]           tür: door door1 exit step1 hazard barrier trigger1 ... yok
-  harita-yeni <ad>
-  silah-al <ad> <klasör>            sprite, ses ve states içe aktarır
-  dusman-al <ad> <klasör>
-  dekor-al <ad> <klasör>
-  doku-al <png> [tür]               tür 2 duvar
-  model-al <ad> <klasör> [tür]      tür 1 dekor, 2 düşman
-  md3 <ad>                          model kare, üçgen bilgisi
-  onizle <ad> <png> [kare ...]      modelin karelerini oyunu açmadan çizer
-  kontrol                           tüm doğrulamalar
-  yedek | editor | oyna [--map N] | foto <dosya> [--bekle sn] [--tus "..."] | paket
-Çıktı JSON veya sade yazıdır. Editör açıkken proje yazma komutları reddedilir.
-
-English: every command also has an English name (projects, info, list, get, set, add, remove, order, save, map, map-new, tile,
-entity, modifier, import-weapon, import-enemy, import-deco, import-texture, import-model, md3, preview, check, backup, editor,
-play, shot, pack) and options --engine --project --floor --index --wait --keys. "none" and "empty" work like "yok" and "boş"."""
+  projects                          projects in the engine folder
+  info                              summary
+  list <collection>                 enemies decorations weapons maps textures models animations hps armours tiles
+  get <collection> [name|index]     all fields (also game, player, hud)
+  set <collection> <name> field=value ...
+  add <collection> field=value ...
+  remove <collection> <name>
+  order <collection> <name> <name> ...   moves these names to the front (weapon slot order)
+  save                              re-save in the editor's own format
+  map <name> [--floor N]            draw the map as text
+  tile <name> <texture|empty> x y [x2 y2] [--floor N]
+  entity <name> <type> x y [--index N] [--floor N]      type: player enemy weapon deco ammo key1 hp1 light1 ... none
+  modifier <name> <type> x y [--floor N]                type: door door1 exit step1 hazard barrier trigger1 ... none
+  map-new <name>
+  import-weapon <name> <folder>     sprites, sounds and states
+  import-enemy <name> <folder>
+  import-deco <name> <folder>
+  import-texture <png> [type]       type 2 = wall
+  import-model <name> <folder> [type]   type 1 decoration, 2 enemy
+  md3 <name>                        frame and triangle counts
+  preview <name> <png> [frame ...]  render model frames without starting the game
+  check                             all validations
+  backup | editor | play [--map N] | shot <file> [--wait s] [--keys "..."] | pack
+Output is JSON or plain text. Write commands are refused while the editor is open.
+Turkish command and option names also work (al, ayarla, --proje, --kat ...)."""
 import argparse
 import datetime
 import json
@@ -45,7 +42,7 @@ import zipfile
 try:
     import numpy as np
 except ImportError:
-    np = None   # MD3 komutları numpy ister, gerisi istemez
+    np = None   # only the MD3 commands need numpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 NOWIN = 0x08000000
@@ -69,10 +66,10 @@ class Project:
     def p(self, *a):
         return os.path.join(self.dir, *a)
 
-    # ---- editörün kodu ----
+    # ---- the editor's own code ----
     def host(self, is_, ops=None, save_to=None):
         ps = os.path.join(os.environ["WINDIR"], "SysWOW64", "WindowsPowerShell", "v1.0", "powershell.exe")
-        cmd = [ps, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "host.ps1"), "-Exe", self.exe, "-Proje", self.dir, "-Is", is_]
+        cmd = [ps, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "efpse_host.ps1"), "-Exe", self.exe, "-Proje", self.dir, "-Is", is_]
         tmp = None
         if ops is not None:
             fd, tmp = tempfile.mkstemp(suffix=".json")
@@ -85,8 +82,8 @@ class Project:
         if tmp:
             os.remove(tmp)
         out, err = r.stdout.decode("utf8", "replace"), r.stderr.decode("utf8", "replace")
-        if r.returncode or (is_ == "apply" and "KAYDEDILDI" not in out):
-            raise SystemExit("Editör kodu hata verdi:\n" + (err or out)[-900:])
+        if r.returncode or (is_ == "apply" and "SAVED" not in out):
+            raise SystemExit("The editor code reported an error:\n" + (err or out)[-900:])
         return out
 
     def data(self):
@@ -95,7 +92,7 @@ class Project:
     def guard(self):
         out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq EasyFPSEditor_CE.exe"], capture_output=True, text=True, creationflags=NOWIN).stdout
         if "EasyFPSEditor_CE.exe" in out:
-            raise SystemExit("Editör açık. Kaydedip kapat, yoksa editör bu değişikliğin üstüne yazar.")
+            raise SystemExit("The editor is open. Save and close it first, otherwise it will overwrite this change.")
 
     def apply(self, ops):
         self.guard()
@@ -103,7 +100,7 @@ class Project:
         self.host("apply", ops)
 
     def backup(self, quiet=False):
-        d = os.path.join(self.projects, "..", "kopru_yedek", self.ad)
+        d = os.path.join(self.projects, "..", "efpse_backup", self.ad)
         os.makedirs(d, exist_ok=True)
         path = os.path.abspath(os.path.join(d, datetime.datetime.now().strftime("%Y%m%d_%H%M%S.zip")))
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -116,10 +113,10 @@ class Project:
         for o in old:
             os.remove(os.path.join(d, o))
         if not quiet:
-            print("yedek:", path)
+            print("backup:", path)
         return path
 
-    # ---- harita ----
+    # ---- maps ----
     def map_path(self, ad):
         return self.p("Maps", ad if ad.endswith(".eem") else ad + ".eem")
 
@@ -172,7 +169,7 @@ def map_text(pr, ad, kat):
             if m["tiles"][i] or m["ents"][i] or m["mods"][i]:
                 x0, x1, y0, y1 = min(x0, x), max(x1, x), min(y0, y), max(y1, y)
     if x1 < 0:
-        return "kat %d boş" % kat
+        return "floor %d is empty" % kat
     for y in range(y0, y1 + 1):
         s = ""
         for x in range(x0, x1 + 1):
@@ -188,10 +185,10 @@ def map_text(pr, ad, kat):
             s += c
         rows.append("%2d %s" % (y, s))
     head = "   " + "".join(str((x // 10) % 10) if x % 10 == 0 else " " for x in range(x0, x1 + 1)) + "\n   " + "".join(str(x % 10) for x in range(x0, x1 + 1))
-    return "%s kat %d  # duvar _ zemin @ oyuncu E düşman W silah d dekor * ışık D kapı X çıkış s basamak\n%s\n%s" % (ad, kat, head, "\n".join(rows))
+    return "%s floor %d  # wall _ floor @ player E enemy W weapon d decoration * light D door X exit s step\n%s\n%s" % (ad, kat, head, "\n".join(rows))
 
 
-# ---- içe aktarma: editördeki diyaloglarla aynı dosya adları ----
+# ---- import: same file names as the editor's own import dialogs ----
 def copy_group(pr, src, name, folder, sounds, extra=()):
     n = 0
     os.makedirs(pr.p("Sprites", folder), exist_ok=True)
@@ -227,13 +224,13 @@ def has(lst, name):
     return any(name_of(x) == name for x in lst)
 
 
-# ---- kontrol ----
+# ---- checks ----
 def read(p):
     with open(p, encoding="utf8", errors="replace") as f:
         return f.read().replace("\r", "")
 
 
-# el kitabı (Advanced/FSM) komut listesi
+# commands listed in the manual (Advanced/FSM)
 ACTIONS = set("""NONE READY SOUND SOUNDANDATTACK PLAYERSPEED PARTICLES CUSTOMPARTICLE SETVAR MODELTEXTURE SPAWN HUDIMG CAMSPEED
 INCREMENT DECREMENT MULTIPLY DIVIDE MODULO CLAMP JUMPIFEQUALS JUMPIFNEQUALS JUMPIFGEQUALS JUMPIFLEQUALS JUMPIFGREATER JUMPIFLESS JUMPIFHPLESS
 ATTACK EXPLOSION PROJECTILE JUMPIFLESSAMMO JUMPIFNOAMMO GIVEAMMO TAKEAMMO SETAMMO RELOAD MUZZLEFLASH SETSTAT ZOOM""".split())
@@ -245,20 +242,20 @@ def check_states(pr, path, folder, errs):
     for i, ln in enumerate(read(path).split("\n"), 1):
         w = ln.split()
         if ln != ln.lstrip():
-            errs.append("%s:%d satır başında boşluk" % (rel, i))
+            errs.append("%s:%d space at the start of the line" % (rel, i))
         if not w:
             continue
         if w[0] == "image":
             if len(w) == 4:
                 for k in range(int(w[2]), int(w[3]) + 1):
                     if not os.path.exists(pr.p("Sprites", folder, "%s%d.png" % (w[1], k))):
-                        errs.append("%s: eksik görsel %s%d.png" % (rel, w[1], k))
+                        errs.append("%s: missing image %s%d.png" % (rel, w[1], k))
                 images += int(w[3]) - int(w[2]) + 1
             else:
                 images += 1
         elif w[0] == "sound":
             if not os.path.exists(pr.p("Sounds", w[1] + ".wav")):
-                errs.append("%s: eksik ses %s.wav" % (rel, w[1]))
+                errs.append("%s: missing sound %s.wav" % (rel, w[1]))
             sounds += 1
         elif w[0] == "state":
             states.add(w[1])
@@ -267,33 +264,33 @@ def check_states(pr, path, folder, errs):
                 jumps.append((i, w[2]))
         elif w[0] == "frame":
             if int(w[1]) >= images:
-                errs.append("%s:%d kare %s yok (toplam %d)" % (rel, i, w[1], images))
+                errs.append("%s:%d frame %s does not exist (%d in total)" % (rel, i, w[1], images))
             act = w[6:]
             if folder == "Weapons" and float(w[2]) < .0167:
-                errs.append("%s:%d süre %s çok kısa" % (rel, i, w[2]))
+                errs.append("%s:%d duration %s is too short" % (rel, i, w[2]))
             if act and act[0] not in ACTIONS:
-                errs.append("%s:%d el kitabında olmayan komut %s" % (rel, i, act[0]))
+                errs.append("%s:%d command %s is not in the manual" % (rel, i, act[0]))
             if act and act[0] != "NONE" and first:
-                errs.append("%s:%d durumun ilk satırındaki komut yok sayılır: %s" % (rel, i, act[0]))
+                errs.append("%s:%d a command on the first line of a state is ignored: %s" % (rel, i, act[0]))
             first = False
             if act and act[0].startswith("JUMPIF"):
                 jumps.append((i, act[-1]))
             if act and act[0] in ("SOUND", "SOUNDANDATTACK") and act[1].isdigit() and int(act[1]) >= sounds:
-                errs.append("%s:%d ses %s yok" % (rel, i, act[1]))
+                errs.append("%s:%d sound %s does not exist" % (rel, i, act[1]))
     for i, st in jumps:
         if st not in states:
-            errs.append("%s:%d bilinmeyen durum %s" % (rel, i, st))
+            errs.append("%s:%d unknown state %s" % (rel, i, st))
 
 
 def kontrol(pr):
     errs, notes = [], []
     d = pr.data()
-    notes.append("Editör kodu projeyi açıyor")
+    notes.append("The editor code opens the project")
     weapons = [w["name"] for w in d["weapons"]]
-    notes.append("Silahlar: " + ", ".join(w for w in weapons if w != "None"))
-    notes.append("Düşmanlar: " + ", ".join(e["name"] for e in d["enemies"]))
-    notes.append("Haritalar: " + ", ".join(m["name"] for m in d["maps"]))
-    # editör kaydedince dosyalar değişiyor mu
+    notes.append("Weapons: " + ", ".join(w for w in weapons if w != "None"))
+    notes.append("Enemies: " + ", ".join(e["name"] for e in d["enemies"]))
+    notes.append("Maps: " + ", ".join(m["name"] for m in d["maps"]))
+    # do the files change when the editor saves them
     tmp = tempfile.mkdtemp()
     for f in os.listdir(pr.dir):
         if f.endswith(".dat"):
@@ -304,7 +301,7 @@ def kontrol(pr):
         if a != b:
             la, lb = a.split("\n"), b.split("\n")
             i = next((k for k in range(min(len(la), len(lb))) if la[k] != lb[k]), min(len(la), len(lb)))
-            errs.append("%s editör kaydedince değişir, satır %d: [%s] / [%s]" % (f, i + 1, la[i] if i < len(la) else "", lb[i] if i < len(lb) else ""))
+            errs.append("%s changes when the editor saves it, line %d: [%s] / [%s]" % (f, i + 1, la[i] if i < len(la) else "", lb[i] if i < len(lb) else ""))
     shutil.rmtree(tmp)
     for folder, names in (("Weapons", [w for w in weapons if w != "None"]), ("Enemies", [e["name"] for e in d["enemies"]]), ("Decorations", [x["name"] for x in d["decorations"]])):
         for n in names:
@@ -314,52 +311,52 @@ def kontrol(pr):
     for m in d["models"]:
         names = [m["modelFilename"], "w" + m["modelFilename"], "v" + m["modelFilename"]]
         if not any(os.path.exists(pr.p("Models", n + ".md3")) for n in names):
-            errs.append("Model dosyası yok: %s" % m["entityName"])
+            errs.append("Model file missing: %s" % m["entityName"])
             continue
         md3 = pr.p("Models", m["modelFilename"] + ".md3")
         st = pr.p("States", m["entityName"] + ".states")
         if np is not None and os.path.exists(md3) and os.path.exists(st):
             if not os.path.exists(md3[:-4] + ".png"):
-                errs.append("Model dokusu yok: %s.png" % m["modelFilename"])
+                errs.append("Model texture missing: %s.png" % m["modelFilename"])
             nf = md3_read(md3)["frames"]
             for i, ln in enumerate(read(st).split("\n"), 1):
                 w = ln.split()
                 if w[:1] == ["frame"] and int(w[1]) >= nf:
-                    errs.append("States/%s.states:%d kare %s modelde yok (%d kare)" % (m["entityName"], i, w[1], nf))
+                    errs.append("States/%s.states:%d frame %s is not in the model (%d frames)" % (m["entityName"], i, w[1], nf))
                     break
     tex_ok = {t["id"] + 1 for t in d["textures"]}
     for mp in d["maps"]:
         if not os.path.exists(pr.p("Maps", mp["name"])):
-            errs.append("Harita dosyası yok: " + mp["name"])
+            errs.append("Map file missing: " + mp["name"])
             continue
         m = pr.map_load(mp["name"])
         bad = {t for t in m["tiles"] if t and t not in tex_ok}
         if bad:
-            errs.append("%s: tanımsız doku %s" % (mp["name"], sorted(bad)))
+            errs.append("%s: undefined texture %s" % (mp["name"], sorted(bad)))
         if sum(1 for e in m["ents"] if e - 1 == 8) != 1:
-            errs.append("%s: oyuncu sayısı 1 değil" % mp["name"])
+            errs.append("%s: there must be exactly one player start" % mp["name"])
         en_ok = {e["id"] for e in d["enemies"]}
         for e, i_ in zip(m["ents"], m["idx"]):
             if e - 1 == 6 and i_ not in en_ok:
-                errs.append("%s: tanımsız düşman %d" % (mp["name"], i_))
+                errs.append("%s: undefined enemy %d" % (mp["name"], i_))
                 break
         sc = pr.p("Scripts", mp["name"][:-4] + ".script")
         if os.path.exists(sc) and "font " not in read(sc):
-            errs.append("%s: 'font' satırı yok, oyun açılışta donabilir" % os.path.basename(sc))
+            errs.append("%s: no 'font' line, the game may freeze at start" % os.path.basename(sc))
     for n in notes:
         print(n)
     for e in errs:
-        print("HATA ", e)
-    print("Sonuç:", "sorun yok" if not errs else "%d sorun" % len(errs))
+        print("ERROR ", e)
+    print("Result:", "no problems" if not errs else "%d problems" % len(errs))
     return not errs
 
 
 def md3_read(path):
-    """MD3'ün yüzey, kare ve üçgen bilgisi; köşeler birim cinsinden (x ileri, y yan, z yukarı)."""
+    """MD3 surfaces, frames and triangles; vertices in map units (x forward, y side, z up)."""
     with open(path, "rb") as f:
         b = f.read()
     if b[:4] != b"IDP3":
-        raise SystemExit("MD3 değil: " + path)
+        raise SystemExit("Not an MD3 file: " + path)
     nfr, ntag, nsurf = struct.unpack("<iii", b[76:88])
     ofs = struct.unpack("<i", b[100:104])[0]
     surfs = []
@@ -375,7 +372,7 @@ def md3_read(path):
 
 
 def md3_render(path, frame, size=320, yaw=35.0):
-    """Modelin bir karesini dokudan renk alarak düz gölgeli çizer."""
+    """Draws one model frame with flat shading, colours from its texture."""
     import cv2
     m = md3_read(path)
     tex_path = path[:-4] + ".png"
@@ -417,10 +414,10 @@ def pack(pr):
     if os.path.exists(cfg):
         with open(os.path.join(out, "Config.ini"), "w", newline="\r\n") as f:
             f.write(read(cfg).replace("fullscreen=0", "fullscreen=1"))
-    print("paket:", out)
+    print("package:", out)
 
 
-# İngilizce komut adları: aynı işi yapar
+# Turkish command names: the same commands under their original names
 ALIAS = {"help": "yardim", "projects": "projeler", "info": "bilgi", "list": "liste", "get": "al", "set": "ayarla", "add": "ekle", "remove": "sil",
          "order": "sirala", "save": "kaydet", "map": "harita", "map-new": "harita-yeni", "tile": "kare", "entity": "varlik", "modifier": "degistirici",
          "import-weapon": "silah-al", "import-enemy": "dusman-al", "import-deco": "dekor-al", "import-texture": "doku-al", "import-model": "model-al",
@@ -448,7 +445,7 @@ def main():
         print("\n".join(d for d in os.listdir(pr.projects) if os.path.exists(os.path.join(pr.projects, d, "Game.dat"))))
     elif c == "bilgi":
         d = pr.data()
-        print(json.dumps({k: [name_of(o) for o in d[k]] for k in ("weapons", "enemies", "decorations", "maps")} | {"doku": len(d["textures"]), "model": len(d["models"]), "oyun": d["game"]["name"]}, ensure_ascii=False, indent=1))
+        print(json.dumps({k: [name_of(o) for o in d[k]] for k in ("weapons", "enemies", "decorations", "maps")} | {"textures": len(d["textures"]), "models": len(d["models"]), "game": d["game"]["name"]}, ensure_ascii=False, indent=1))
     elif c == "liste":
         print("\n".join(name_of(o) for o in pr.data()[x[0]]))
     elif c == "al":
@@ -458,26 +455,26 @@ def main():
         print(json.dumps(v, ensure_ascii=False, indent=1))
     elif c == "ayarla":
         pr.apply([dict(op="set", coll=x[0], key=x[1], fields=kv(x[2:]))] if x[0] not in ("game", "player", "hud") else [dict(op="set", coll=x[0], key="", fields=kv(x[1:]))])
-        print("tamam")
+        print("ok")
     elif c == "ekle":
         pr.apply([dict(op="add", coll=x[0], fields=kv(x[1:]))])
-        print("tamam")
+        print("ok")
     elif c == "sil":
         pr.apply([dict(op="del", coll=x[0], key=x[1])])
-        print("tamam")
+        print("ok")
     elif c == "sirala":
         pr.apply([dict(op="order", coll=x[0], names=x[1:])])
-        print("tamam")
+        print("ok")
     elif c == "kaydet":
         pr.apply([])
-        print("tamam")
+        print("ok")
     elif c == "harita":
         print(map_text(pr, x[0], a.kat))
     elif c == "harita-yeni":
         n = SIZE * SIZE * FLOORS
         pr.map_save(x[0], {k: [0] * n for k in LAYERS})
         pr.apply([dict(op="add", coll="maps", fields=dict(name=x[0] + ".eem"))])
-        print("tamam")
+        print("ok")
     elif c == "kare":
         d = pr.data()
         val = 0 if x[1] in ("boş", "bos", "0") else next(t["id"] + 1 for t in d["textures"] if t["name"] in (x[1], x[1] + ".png"))
@@ -488,26 +485,26 @@ def main():
             for xx in range(min(x0, x1), max(x0, x1) + 1):
                 m["tiles"][idx(xx, yy, a.kat)] = val
         pr.map_save(x[0], m)
-        print("tamam")
+        print("ok")
     elif c == "varlik":
         m = pr.map_load(x[0])
         i = idx(int(x[2]), int(x[3]), a.kat)
         m["ents"][i] = 0 if x[1] == "yok" else ENT[x[1]] + 1
         m["idx"][i] = a.sira
         pr.map_save(x[0], m)
-        print("tamam")
+        print("ok")
     elif c == "degistirici":
         m = pr.map_load(x[0])
         i = idx(int(x[2]), int(x[3]), a.kat)
         m["mods"][i] = 0 if x[1] == "yok" else MOD[x[1]] + 1
         pr.map_save(x[0], m)
-        print("tamam")
+        print("ok")
     elif c in ("silah-al", "dusman-al", "dekor-al"):
         coll, folder = dict(zip(("silah-al", "dusman-al", "dekor-al"), (("weapons", "Weapons"), ("enemies", "Enemies"), ("decorations", "Decorations"))))[c]
         n = copy_group(pr, x[1], x[0], folder, ())
         if not has(pr.data()[coll], x[0]):
             pr.apply([dict(op="add", coll=coll, fields=dict(name=x[0]))])
-        print("içe aktarıldı:", x[0], n, "görsel")
+        print("imported:", x[0], n, "images")
     elif c == "doku-al":
         ad = os.path.basename(x[0])
         os.makedirs(pr.p("Textures"), exist_ok=True)
@@ -515,7 +512,7 @@ def main():
         d = pr.data()["textures"]
         if not has(d, ad):
             pr.apply([dict(op="add", coll="textures", fields=dict(id=max([t["id"] for t in d] + [-1]) + 1, type=x[1] if len(x) > 1 else 2, name=ad, lighted=True))])
-        print("tamam", ad)
+        print("ok", ad)
     elif c == "model-al":
         n = 0
         os.makedirs(pr.p("Models"), exist_ok=True)
@@ -525,32 +522,32 @@ def main():
                 n += 1
         if not has(pr.data()["models"], x[0]):
             pr.apply([dict(op="add", coll="models", fields=dict(entityName=x[0], modelFilename=x[0], modelType=x[2] if len(x) > 2 else 1))])
-        print("içe aktarıldı:", x[0], n, "dosya")
+        print("imported:", x[0], n, "files")
     elif c == "md3":
         m = md3_read(pr.p("Models", x[0] + ".md3"))
-        print("kare", m["frames"], "yüzey", len(m["surfaces"]), "üçgen", m["tris"], "köşe", m["verts"])
+        print("frames", m["frames"], "surfaces", len(m["surfaces"]), "triangles", m["tris"], "vertices", m["verts"])
     elif c == "onizle":
         import cv2
         frames = [int(v) for v in x[2:]] or [0]
         sheet = np.hstack([md3_render(pr.p("Models", x[0] + ".md3"), f) for f in frames])
         cv2.imencode(".png", sheet)[1].tofile(x[1])
-        print("yazıldı:", x[1])
+        print("written:", x[1])
     elif c == "kontrol":
         sys.exit(0 if kontrol(pr) else 1)
     elif c == "yedek":
         pr.backup()
     elif c == "editor":
         subprocess.Popen([pr.exe], cwd=pr.motor)
-        print("Editör açıldı. File > Open Project >", pr.ad)
+        print("Editor opened. File > Open Project >", pr.ad)
     elif c == "oyna":
         subprocess.Popen([os.path.join(pr.projects, "Game.exe"), "-data", pr.ad, "-map", str(a.map), "-console"], cwd=pr.projects)
     elif c == "foto":
         keys = (a.tus + "," if a.tus else "") + "SHOT"
-        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "foto.ps1"), "-Dir", pr.projects, "-Project", pr.ad, "-Map", str(a.map), "-Wait", str(a.bekle), "-Out", os.path.abspath(x[0]), "-Keys", keys])
+        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "efpse_shot.ps1"), "-Dir", pr.projects, "-Project", pr.ad, "-Map", str(a.map), "-Wait", str(a.bekle), "-Out", os.path.abspath(x[0]), "-Keys", keys])
     elif c == "paket":
         pack(pr)
     else:
-        raise SystemExit("bilinmeyen komut: " + c)
+        raise SystemExit("unknown command: " + c + "  (run without a command for help)")
 
 
 if __name__ == "__main__":

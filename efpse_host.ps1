@@ -1,6 +1,6 @@
-# Easy FPS Editor'ün kendi sınıflarını çalıştırır. 32 bit PowerShell ister. Editör penceresi açmaz.
-# Kullanım: host.ps1 -Exe <EasyFPSEditor_CE.exe> -Proje <klasör\> -Is dump
-#           host.ps1 ... -Is apply -Ops <işlem.json>      (kopru.py üretir)
+﻿# Runs Easy FPS Editor's own classes. Needs 32-bit PowerShell. Does not open the editor window.
+# Usage: efpse_host.ps1 -Exe <EasyFPSEditor_CE.exe> -Proje <folder\> -Is dump
+#        efpse_host.ps1 ... -Is apply -Ops <operations.json>   (written by efpse.py)
 param([string]$Exe, [string]$Proje, [string]$Is, [string]$Ops = '', [string]$SaveTo = '')
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
@@ -11,7 +11,7 @@ Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [void][Reflection.Assembly]::LoadFrom($Exe)
 if (-not $Proje.EndsWith('\')) { $Proje += '\' }
 $res = New-Object EasyFPSEditor15.Resources
-if (-not $res.LoadAllResources($Proje)) { throw 'Editor projeyi yukleyemedi' }
+if (-not $res.LoadAllResources($Proje)) { throw 'The editor could not load the project' }
 
 $LISTS = @{ enemies = 'ResourceEnemy'; decorations = 'ResourceDecoration'; weapons = 'ResourceWeapon'; maps = 'ResourceMap'; hps = 'ResourceHp'; armours = 'ResourceArmour'; animations = 'ResourceAnimation'; models = 'ResourceModel'; textures = 'ResourceTexture'; tiles = 'ResourceTile' }
 $SINGLES = 'game', 'player', 'hud'
@@ -34,7 +34,7 @@ function SetField($o, $name, $val) {
   $arrIdx = -1
   if ($name -match '^(\w+)\[(\d+)\]$') { $name = $Matches[1]; $arrIdx = [int]$Matches[2] }
   $f = $o.GetType().GetField($name)
-  if (-not $f) { throw "alan yok: $name" }
+  if (-not $f) { throw "no such field: $name" }
   $t = $f.FieldType
   if ($arrIdx -ge 0) { $a = $f.GetValue($o); $a[$arrIdx] = [Convert]::ChangeType($val, $t.GetElementType(), [Globalization.CultureInfo]::InvariantCulture); return }
   if ($t.IsArray) { $e = $t.GetElementType(); $arr = [Array]::CreateInstance($e, $val.Count); for ($i = 0; $i -lt $val.Count; $i++) { $arr[$i] = [Convert]::ChangeType($val[$i], $e, [Globalization.CultureInfo]::InvariantCulture) }; $f.SetValue($o, $arr); return }
@@ -48,7 +48,7 @@ function Target($coll, $key) {
   $list = $res.$coll
   if ("$key" -match '^\d+$') { return $list[[int]$key] }
   foreach ($x in $list) { $n = if ($x.GetType().GetField('entityName')) { $x.entityName } else { $x.name }; if ($n -eq $key) { return $x } }
-  throw "$coll icinde bulunamadi: $key"
+  throw "not found in ${coll}: $key"
 }
 
 if ($Is -eq 'apply') {
@@ -62,7 +62,7 @@ if ($Is -eq 'apply') {
         foreach ($p in $op.fields.PSObject.Properties) { SetField $o $p.Name $p.Value }
         if ($op.coll -eq 'weapons') {
           $i = 0; while ($i -lt $res.weapons.Count -and $res.weapons[$i].name -ne 'None') { $i++ }
-          if ($i -ge 8) { throw '8 silah dolu' }
+          if ($i -ge 8) { throw 'all 8 weapon slots are in use' }
           $res.weapons[$i] = $o
         } else { [void]$res.$($op.coll).Add($o) }
       }
@@ -71,16 +71,16 @@ if ($Is -eq 'apply') {
         if ($op.coll -eq 'weapons') { [void]$res.weapons.Remove($o); [void]$res.weapons.Add((New-Object EasyFPSEditor15.ResourceWeapon)) } else { [void]$res.$($op.coll).Remove($o) }
       }
       'order' {
-        # verilen adlar listenin başına, verildiği sırayla
+        # the given names move to the front, in the given order
         $names = @($op.names); [array]::Reverse($names)
         foreach ($nm in $names) { $o = Target $op.coll $nm; [void]$res.$($op.coll).Remove($o); $res.$($op.coll).Insert(0, $o) }
       }
-      default { throw "bilinmeyen islem $($op.op)" }
+      default { throw "unknown operation $($op.op)" }
     }
   }
   $out = if ($SaveTo) { if ($SaveTo.EndsWith('\')) { $SaveTo } else { $SaveTo + '\' } } else { $Proje }
   [void]$res.SaveAllResources($out)
-  'KAYDEDILDI'
+  'SAVED'
   return
 }
 

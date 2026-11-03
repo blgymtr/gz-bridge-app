@@ -9,15 +9,15 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile
-        run: python -m py_compile kopru.py test_kopru.py
+        run: python -m py_compile efpse.py test_efpse.py
       - name: Help text
-        run: python kopru.py help
+        run: python efpse.py help
         env:
           PYTHONUTF8: "1"
       - name: PowerShell syntax
         shell: powershell
         run: |
-          foreach ($f in 'host.ps1','foto.ps1') {
+          foreach ($f in 'efpse_host.ps1','efpse_shot.ps1') {
             $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$e)
             if ($e) { $e; exit 1 }
           }

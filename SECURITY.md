@@ -11,9 +11,9 @@ with steps to reproduce and your Easy FPS Editor version.
 - It runs only on your own computer and makes **no network connections**.
 - It loads `EasyFPSEditor_CE.exe` from the folder you give it and runs the editor's own .NET code
   inside a 32-bit PowerShell process. Only point it at an editor you trust.
-- It writes only inside the project folder you name, after copying the files it changes to `kopru_yedek/`.
+- It writes only inside the project folder you name, after copying the files it changes to `efpse_backup/`.
 - `shot` and `play` start the game's `Game.exe` from that project; `shot` sends simulated key presses and mouse clicks to the game window.
-- `host.ps1` and `foto.ps1` are started with `-ExecutionPolicy Bypass` for that call only. Read them before running if you are unsure.
+- `efpse_host.ps1` and `efpse_shot.ps1` are started with `-ExecutionPolicy Bypass` for that call only. Read them before running if you are unsure.
 
 ## Supported versions
 

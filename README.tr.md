@@ -1,6 +1,6 @@
 <div align="center">
 
-# EFPSE Köprü
+# EFPSE Bridge
 
 **Easy FPS Editor CE projelerini komut satırından yönet.**
 Editör penceresini açmadan her proje ayarını editörün kendi koduyla oku ve yaz, haritaları yazı olarak düzenle, varlık içe aktar, denetle, ekran görüntüsü al, paketle.
@@ -14,7 +14,7 @@ Editör penceresini açmadan her proje ayarını editörün kendi koduyla oku ve
 
 ## Neden
 
-Easy FPS Editor'de birçok seçenek onay kutularının ve panellerin arkasında durur: model bayrakları, silah ve düşman alanları, harita özellikleri. Bunlar elle okunması ve değiştirilmesi zor, betikle hiç yönetilemeyen ikili proje dosyalarında saklanır. EFPSE Köprü arka planda **senin kurulu editörünü** yükler, projeyi onun kendi sınıflarıyla açıp kaydeder ve her şeyi düz JSON ve yazı olarak verir. Böylece ayarlar görünür, karşılaştırılabilir ve betiklenebilir olur; hem insanlar hem yapay zekâ asistanları için.
+Easy FPS Editor'de birçok seçenek onay kutularının ve panellerin arkasında durur: model bayrakları, silah ve düşman alanları, harita özellikleri. Bunlar elle okunması ve değiştirilmesi zor, betikle hiç yönetilemeyen ikili proje dosyalarında saklanır. EFPSE Bridge arka planda **senin kurulu editörünü** yükler, projeyi onun kendi sınıflarıyla açıp kaydeder ve her şeyi düz JSON ve yazı olarak verir. Böylece ayarlar görünür, karşılaştırılabilir ve betiklenebilir olur; hem insanlar hem yapay zekâ asistanları için.
 
 ## Özellikler
 
@@ -26,7 +26,7 @@ Easy FPS Editor'de birçok seçenek onay kutularının ve panellerin arkasında 
 - **Denetim.** `kontrol` eksik dosyaları, kırık bağlantıları, el kitabında olmayan FSM komutlarını ve diğer hataları arar; hata varsa sıfırdan farklı çıkış verir (CI'a uygun).
 - **Çalıştır ve yakala.** Editörü aç, oyunu bir haritada başlat ya da tuş senaryosu oynatıp (`W:200,LMB:40,WAIT:500,SHOT`) ekran görüntüsü al.
 - **Paketle.** Oyunun dağıtılabilir klasörünü hazırlar.
-- **Varsayılan olarak güvenli.** Her yazma önce `kopru_yedek/` altına zaman damgalı yedek alır. Editör açıkken yazma reddedilir, ikisi aynı dosyalar için çekişmez.
+- **Varsayılan olarak güvenli.** Her yazma önce `efpse_backup/` altına zaman damgalı yedek alır. Editör açıkken yazma reddedilir, ikisi aynı dosyalar için çekişmez.
 - **Komut satırında iki dil.** Komutlar ve seçenekler Türkçe ve İngilizce çalışır (`al`/`get`, `--proje`/`--project`).
 
 ## Gerekenler
@@ -34,7 +34,7 @@ Easy FPS Editor'de birçok seçenek onay kutularının ve panellerin arkasında 
 - Windows 10 veya 11
 - Easy FPS Editor CE **v1.10.5** (kendi kurulumun; depoda yok)
 - Python 3.9 veya üstü. MD3 komutları için `numpy`, `onizle` için `opencv-python`. Gerisi standart kütüphane
-- Windows PowerShell 5.1 (Windows ile gelir). Köprü editörü yüklemek için 32 bit sürümünü başlatır
+- Windows PowerShell 5.1 (Windows ile gelir). EFPSE Bridge editörü yüklemek için 32 bit sürümünü başlatır
 
 ## Hızlı başlangıç
 
@@ -43,12 +43,12 @@ git clone https://github.com/blgymtr/gz-bridge-app.git
 cd gz-bridge-app
 $env:EFPSE_MOTOR = 'C:\Oyunlar\EasyFPSEditor_CE_V1.10.5'   # EasyFPSEditor_CE.exe'nin klasörü
 $env:EFPSE_PROJE = 'Oyunum'                               # Projects\ altındaki klasör adı
-python kopru.py projeler
-python kopru.py bilgi
-python kopru.py kontrol
+python efpse.py projeler
+python efpse.py bilgi
+python efpse.py kontrol
 ```
 
-Seçenekler doğrudan da verilir: `python kopru.py --motor <klasör> --proje <ad> <komut> ...`
+Seçenekler doğrudan da verilir: `python efpse.py --motor <klasör> --proje <ad> <komut> ...`
 
 ## Komutlar
 
@@ -87,48 +87,48 @@ Seçenekler doğrudan da verilir: `python kopru.py --motor <klasör> --proje <ad
 ### Örnekler
 
 ```powershell
-python kopru.py al weapons Shotgun
-python kopru.py ayarla enemies Imp health=120 speed=3.5
-python kopru.py ayarla game name="Gece Vardiyası"
-python kopru.py harita E1M1 --kat 0
-python kopru.py kare E1M1 brick.png 10 10 20 10
-python kopru.py varlik E1M1 enemy 15 12 --sira 2
-python kopru.py degistirici E1M1 door 15 9
-python kopru.py model-al Varil .\modeller\varil 1
-python kopru.py onizle Varil varil.png 0 4 8
-python kopru.py foto test.png --bekle 6 --tus "W:400,LMB:60,WAIT:300,SHOT"
+python efpse.py al weapons Shotgun
+python efpse.py ayarla enemies Imp health=120 speed=3.5
+python efpse.py ayarla game name="Gece Vardiyası"
+python efpse.py harita E1M1 --kat 0
+python efpse.py kare E1M1 brick.png 10 10 20 10
+python efpse.py varlik E1M1 enemy 15 12 --sira 2
+python efpse.py degistirici E1M1 door 15 9
+python efpse.py model-al Varil .\modeller\varil 1
+python efpse.py onizle Varil varil.png 0 4 8
+python efpse.py foto test.png --bekle 6 --tus "W:400,LMB:60,WAIT:300,SHOT"
 ```
 
 ## Dosyalar
 
 | Dosya | Görevi |
 |---|---|
-| `kopru.py` | Komutlar, harita okuma ve yazma, içe aktarma, denetim, MD3, paket |
-| `host.ps1` | Editörün sınıflarını 32 bit PowerShell'de yükler, okur ya da değişiklikleri uygular |
-| `foto.ps1` | Oyunu açar, tuş senaryosunu oynatır, pencereyi yakalar |
-| `test_kopru.py` | Yazma komutlarını projenin geçici kopyasında dener |
+| `efpse.py` | Komutlar, harita okuma ve yazma, içe aktarma, denetim, MD3, paket |
+| `efpse_host.ps1` | Editörün sınıflarını 32 bit PowerShell'de yükler, okur ya da değişiklikleri uygular |
+| `efpse_shot.ps1` | Oyunu açar, tuş senaryosunu oynatır, pencereyi yakalar |
+| `test_efpse.py` | Yazma komutlarını projenin geçici kopyasında dener |
 
 ## Test
 
 ```powershell
-python test_kopru.py <motor klasörü> <proje>
+python test_efpse.py <motor klasörü> <proje>
 ```
 
-Test projeyi `Projects\KopruTest` altına kopyalar, yazma komutlarını orada çalıştırır ve sonuçları denetler. Senin projene dokunulmaz.
+Test projeyi `Projects\EfpseTest` altına kopyalar, yazma komutlarını orada çalıştırır ve sonuçları denetler. Senin projene dokunulmaz.
 
 ## Nasıl çalışır
 
-`host.ps1` 32 bit Windows PowerShell'de başlar, `EasyFPSEditor_CE.exe`'yi .NET derlemesi olarak yükler ve projeyi editörün kendi kaynak sınıflarıyla açar. Açık alanlar JSON'a çevrilir. `kopru.py`'den gelen değişiklikler küçük bir işlem listesi olarak (`set`, `add`, `del`, `order`) aynı sınıflarla kaydedilir; dosyalar editörün beklediği biçimde kalır. Haritalar doğrudan okunup yazılır (64x64 ızgara, 9 kat, beş katman).
+`efpse_host.ps1` 32 bit Windows PowerShell'de başlar, `EasyFPSEditor_CE.exe`'yi .NET derlemesi olarak yükler ve projeyi editörün kendi kaynak sınıflarıyla açar. Açık alanlar JSON'a çevrilir. `efpse.py`'den gelen değişiklikler küçük bir işlem listesi olarak (`set`, `add`, `del`, `order`) aynı sınıflarla kaydedilir; dosyalar editörün beklediği biçimde kalır. Haritalar doğrudan okunup yazılır (64x64 ızgara, 9 kat, beş katman).
 
 ## Sınırlar
 
 - Yalnız Easy FPS Editor CE v1.10.5 ile denendi. Başka sürümlerde alan adları değişebilir.
 - `foto` oyun penceresinin ekrandaki alanını yakalar; pencere kısa süre en üstte kalır.
-- Easy FPS Editor'ün yapımcılarıyla bağlantısı ya da onayı yoktur. Editörün hiçbir parçası depoda yoktur; köprü senin kurulu kopyanı kullanır.
+- Easy FPS Editor'ün yapımcılarıyla bağlantısı ya da onayı yoktur. Editörün hiçbir parçası depoda yoktur; EFPSE Bridge senin kurulu kopyanı kullanır.
 
 ## Güvenlik
 
-[SECURITY.md](SECURITY.md) dosyasına bak. Köprü hiçbir ağ bağlantısı kurmaz.
+[SECURITY.md](SECURITY.md) dosyasına bak. EFPSE Bridge hiçbir ağ bağlantısı kurmaz.
 
 ## Lisans
 

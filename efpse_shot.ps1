@@ -1,5 +1,5 @@
-﻿# Oyunu açar, penceresini yakalar, kapatır. Yakalama ekrandan olduğu için pencere kısa süre en üstte durur.
-# Kullanım: foto.ps1 -Dir <Projects> -Project <ad> -Out shot.png -Wait 8 [-Map 0] [-Shots 3] [-Gap 1] [-Keys "W:200,LMB:40,RMB:80,WAIT:500,SHOT"]
+﻿# Starts the game, captures its window, closes it. The capture reads the screen, so the window stays on top for a moment.
+# Usage: efpse_shot.ps1 -Dir <Projects> -Project <name> -Out shot.png -Wait 8 [-Map 0] [-Shots 3] [-Gap 1] [-Keys "W:200,LMB:40,RMB:80,WAIT:500,SHOT"]
 param([string]$Dir, [string]$Out, [int]$Wait = 2, [int]$Map = 0, [string]$Project, [string]$Keys = '', [int]$Shots = 0, [double]$Gap = 1, [string]$Clip = '', [int]$ClipSec = 0)
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -51,7 +51,7 @@ try {
     if ($p.HasExited) { break }
     $a = $k -split ':'
     if ($a[0] -notin 'SHOT','WAIT') {
-      if (-not [Win]::Focus($p.MainWindowHandle)) { 'UYARI: oyun onde degil, girdi gonderilmedi: ' + $k; continue }
+      if (-not [Win]::Focus($p.MainWindowHandle)) { 'WARNING: the game is not in front, input not sent: ' + $k; continue }
       $rr = New-Object Win+R; [void][Win]::GetWindowRect($p.MainWindowHandle, [ref]$rr); [void][Win]::SetCursorPos(($rr.L + $rr.Rt) / 2, ($rr.T + $rr.B) / 2)
     }
     switch -Regex ($a[0]) {
@@ -75,5 +75,5 @@ try {
   if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force } else { "exit code: $($p.ExitCode)" }
 }
 $log = Join-Path $dir 'Startup.log'
-if (Test-Path $log) { '--- log sonu'; Get-Content $log -Tail 5 }
+if (Test-Path $log) { '--- end of log'; Get-Content $log -Tail 5 }
 

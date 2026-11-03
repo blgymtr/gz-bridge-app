@@ -26,7 +26,7 @@ Easy FPS Editor keeps many options behind checkboxes and panels: model flags, we
 - **Validation.** `check` looks for missing files, broken references, FSM commands that are not in the manual and other mistakes, and exits non-zero on errors (CI friendly).
 - **Run and capture.** Open the editor, start the game on a given map, or play a key script (`W:200,LMB:40,WAIT:500,SHOT`) and save screenshots.
 - **Package.** Build a distributable folder of the game.
-- **Safe by default.** Every write makes a timestamped backup in `kopru_yedek/` first. Writes are refused while the editor is open, so the two never fight over the same files.
+- **Safe by default.** Every write makes a timestamped backup in `efpse_backup/` first. Writes are refused while the editor is open, so the two never fight over the same files.
 - **Two languages on the command line.** Commands and options work in English and Turkish (`get`/`al`, `--project`/`--proje`).
 
 ## Requirements
@@ -43,12 +43,12 @@ git clone https://github.com/blgymtr/gz-bridge-app.git
 cd gz-bridge-app
 $env:EFPSE_ENGINE  = 'C:\Games\EasyFPSEditor_CE_V1.10.5'   # folder with EasyFPSEditor_CE.exe
 $env:EFPSE_PROJECT = 'MyGame'                             # folder name under Projects\
-python kopru.py projects
-python kopru.py info
-python kopru.py check
+python efpse.py projects
+python efpse.py info
+python efpse.py check
 ```
 
-Options can also be passed directly: `python kopru.py --engine <folder> --project <name> <command> ...`
+Options can also be passed directly: `python efpse.py --engine <folder> --project <name> <command> ...`
 
 ## Commands
 
@@ -87,38 +87,38 @@ Key script for `shot`: comma separated steps, `KEY:ms` holds a key, `LMB:ms` / `
 ### Examples
 
 ```powershell
-python kopru.py get weapons Shotgun
-python kopru.py set enemies Imp health=120 speed=3.5
-python kopru.py set game name="Night Shift"
-python kopru.py map E1M1 --floor 0
-python kopru.py tile E1M1 brick.png 10 10 20 10
-python kopru.py entity E1M1 enemy 15 12 --index 2
-python kopru.py modifier E1M1 door 15 9
-python kopru.py import-model Barrel .\models\barrel 1
-python kopru.py preview Barrel barrel.png 0 4 8
-python kopru.py shot test.png --wait 6 --keys "W:400,LMB:60,WAIT:300,SHOT"
+python efpse.py get weapons Shotgun
+python efpse.py set enemies Imp health=120 speed=3.5
+python efpse.py set game name="Night Shift"
+python efpse.py map E1M1 --floor 0
+python efpse.py tile E1M1 brick.png 10 10 20 10
+python efpse.py entity E1M1 enemy 15 12 --index 2
+python efpse.py modifier E1M1 door 15 9
+python efpse.py import-model Barrel .\models\barrel 1
+python efpse.py preview Barrel barrel.png 0 4 8
+python efpse.py shot test.png --wait 6 --keys "W:400,LMB:60,WAIT:300,SHOT"
 ```
 
 ## Files
 
 | File | Role |
 |---|---|
-| `kopru.py` | Commands, map read and write, imports, checks, MD3, packaging |
-| `host.ps1` | Loads the editor's classes in 32-bit PowerShell and dumps or applies changes |
-| `foto.ps1` | Starts the game, plays the key script, captures the window |
-| `test_kopru.py` | Runs the write commands on a temporary copy of a project |
+| `efpse.py` | Commands, map read and write, imports, checks, MD3, packaging |
+| `efpse_host.ps1` | Loads the editor's classes in 32-bit PowerShell and dumps or applies changes |
+| `efpse_shot.ps1` | Starts the game, plays the key script, captures the window |
+| `test_efpse.py` | Runs the write commands on a temporary copy of a project |
 
 ## Testing
 
 ```powershell
-python test_kopru.py <engine folder> <project>
+python test_efpse.py <engine folder> <project>
 ```
 
-The test copies the project to `Projects\KopruTest`, runs the write commands there and checks the results. Your project is not touched.
+The test copies the project to `Projects\EfpseTest`, runs the write commands there and checks the results. Your project is not touched.
 
 ## How it works
 
-`host.ps1` starts in 32-bit Windows PowerShell, loads `EasyFPSEditor_CE.exe` as a .NET assembly and calls the editor's own resource classes to load the project. Public fields are converted to JSON. Changes from `kopru.py` arrive as a small JSON list of operations (`set`, `add`, `del`, `order`) and are saved through the same classes, so the files stay in the format the editor expects. Maps are read and written directly (64x64 grid, 9 floors, five layers).
+`efpse_host.ps1` starts in 32-bit Windows PowerShell, loads `EasyFPSEditor_CE.exe` as a .NET assembly and calls the editor's own resource classes to load the project. Public fields are converted to JSON. Changes from `efpse.py` arrive as a small JSON list of operations (`set`, `add`, `del`, `order`) and are saved through the same classes, so the files stay in the format the editor expects. Maps are read and written directly (64x64 grid, 9 floors, five layers).
 
 ## Limits
 
