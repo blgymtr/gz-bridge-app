@@ -1,0 +1,23 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile
+        run: python -m py_compile kopru.py test_kopru.py
+      - name: Help text
+        run: python kopru.py help
+        env:
+          PYTHONUTF8: "1"
+      - name: PowerShell syntax
+        shell: powershell
+        run: |
+          foreach ($f in 'host.ps1','foto.ps1') {
+            $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$e)
+            if ($e) { $e; exit 1 }
+          }
